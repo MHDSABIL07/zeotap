@@ -1,1 +1,56 @@
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics.pairwise import cosine_similarity
+from datetime import datetime
+
+# load the dataset
+customers_df = pd.read_csv("Customers.csv")
+products_df = pd.read_csv("Products.csv")
+
+#Data preprocessing
+customers_df['SignupDate'] = pd.to_datetime(customers_df['SignupDate'])
+customers_df['Tenure'] = (datetime.now() - customers_df['SignupDate']).dt.days / 365
+
+#feature engineering
+label_encoder = LabelEncoder()
+customers_df['RegionEncoded'] = label_encoder.fit_transform(customers_df['Region'])
+
+customer_preferences = customers_df.copy()
+customer_preferences['ProductCategory'] = np.random.choice(products_df['Category'].unique(), len(customers_df))
+
+product_category_dummies = pd.get_dummies(customer_preferences['ProductCategory'], prefix='Category')
+customer_features = pd.concat([customers_df[['RegionEncoded', 'Tenure']], product_category_dummies], axis=1)
+
+# Step 5: Find top 3 lookalikes for each customer (C0001 to C0020)
+similarity_matrix = cosine_similarity(customer_features)
+
+lookalikes = {}
+
+for i in range(20):  # Considering first 20 customers (C0001 to C0020)
+    similarity_scores = similarity_matrix[i]
+   (excluding the customer itself)
+    similar_customers_indices = np.argsort(similarity_scores)[-4:-1] 
+
+    lookalike_list = []
+    for index in similar_customers_indices:
+        lookalike_list.append((customers_df['CustomerID'][index], similarity_scores[index]))
+    
+    lookalikes[customers_df['CustomerID'][i]] = lookalike_list
+
+# Step 6: Create Lookalike.csv file
+lookalike_df = []
+for customer_id, lookalikes_list in lookalikes.items():
+    for lookalike in lookalikes_list:
+        lookalike_df.append([customer_id, lookalike[0], lookalike[1]])
+
+# Save the result to a CSV file
+lookalike_result_df = pd.DataFrame(lookalike_df, columns=['CustomerID', 'LookalikeCustomerID', 'SimilarityScore'])
+lookalike_result_df.to_csv('Lookalike.csv', index=False)
+
+print("Lookalike.csv file has been generated.")
+
+
+
+
 
